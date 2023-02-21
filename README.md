@@ -35,3 +35,11 @@ python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
 ```
+
+Windows11, Python3.11.1, Git bash
+
+```bash
+py -m venv env
+source env/Scripts/activate
+pip install -r requirements.txt
+```
