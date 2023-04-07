@@ -1,51 +1,75 @@
+import requests
 import csv
-from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
+# 403回避
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+}
+
+
 def no_product():
     return "※該当商品はオンラインでの取り扱い終了か取得失敗"
 
-# ターゲットURL情報を取得
-targets = []
-with open("./target_chateraise.csv", "r", encoding="utf8", errors="", newline="" ) as csvFile:
-    dic_reader = csv.DictReader(csvFile)
-    for row in dic_reader:
-        targets.append(row)
 
-# ターゲットURL情報をもとに原材料などをスクレイピング
-for target in targets:
-    html = urlopen(target["url"])
-    bsObj = BeautifulSoup(html, "html.parser")
-    print("スクレイピング中：" + target["name"])
+def get_details_icebar(target):
+    response = requests.get(
+        "https://www.chateraise.co.jp/" + target, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+    goods_item_infos = soup.find_all(
+        'div', {'class': 'block-goods-item-info'})
+    for goods_item_info in goods_item_infos:
+        dl_list = goods_item_info.find_all('dl')
+        for dl in dl_list:
+            dt = dl.find('dt').text
+            dd = dl.find('dd').text
+            print(dt)
+            print(dd)
 
-    # 価格情報を取得
-    prices = bsObj.findAll("li", {"class":"main__product-price"})[0]
-    rows = prices.findAll("label")
-    print("rows", rows)
-    print("rows", rows[0])
 
-    lst = list(filter(lambda x: "本体価格" in x.get_text(), rows))
-    print("lst", lst)
-    print("len(lst)", len(lst))
+def get_target_icebar():
+    # ターゲットURL
+    target = "https://www.chateraise.co.jp/ec/c/cice-bar/"
+    response = requests.get(target, headers=headers)
 
-    # rows = relationInfo.findAll("tr")
-    # with open("シャトレーゼ_原材料情報情報.txt", mode="a", encoding='utf-8') as file:
-    #     # 商品名書き出し
-    #     file.write('●{0}\n'.format(target["name"]))
+    # BeautifulSoupオブジェクトを作成
+    soup = BeautifulSoup(response.text, "html.parser")
+    pickup_items = soup.find("ul", {"class": "block-pickup-list-p--items"})
 
-    #     # 商品情報が取得できているかどうか
-    #     if not rows:
-    #         # 取得できない場合は、オンラインでの取り扱いが終了として扱う
-    #         file.write(no_product() + '\n')
-    #     else:
-    #         # 原材料等の情報を書き出す
-    #         for row in rows:
-    #             csvRow = []
-    #             for cell in row.findAll(['td', 'th']):
-    #                 csvRow.append(cell.get_text())
-    #             file.write('【{0}】　{1}\n'.format(csvRow[0],csvRow[1]))
+    # li要素を出力
+    for item in pickup_items.find_all("li"):
+        name = item.find("a", {
+            "class": 'js-enhanced-ecommerce-goods-name'}).text
+        price = item.find("div", {
+                          "class": 'block-pickup-list-p--price price js-enhanced-ecommerce-goods-price'}).text
+        detail_url = item.find(
+            "a", {"class": 'js-enhanced-ecommerce-goods-name'}).get('href')
 
-    #     # 1行スペース
-    #     file.write('\n')
+        print(name, price, detail_url)
+
+
+get_target_icebar()
+
+
+class Product:
+    def __init__(self, name, price, spec):
+        self.name = name
+        self.price = price
+        self.spec = spec
+
+    def get_name(self):
+        return self.name
+
+    def get_price(self):
+        return self.price
+
+    def get_spec(self):
+        return self.spec
+
+    def set_name(self, name):
+        self.name = name
+
+    def set_price(self, price):
+        self.price = price
