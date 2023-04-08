@@ -7,7 +7,7 @@ Python(Beautiful Soup 4)を利用してWebスクレイピングを行う。
 
 Python 3.9.10
 
-## Usage
+## Usage(KALDI)
 
 `target.csv`に成分表を取得したい商品のURLと商品名を記載する。
 
@@ -25,6 +25,16 @@ python scrap.py
 
 `KALDIオンラインストアの原材料情報情報.txt`にスクレイピング結果が追記される。
 
+## Usage(chateraise)
+
+スクレイピングの実行。
+
+```bash
+python scrap_chateraise.py
+```
+
+`シャトレーゼ_アイスバー情報.md`にスクレイピング結果が追記される。
+
 ## Install
 
 仮想環境を作成&有効化し、`requirements.txt`を使ってパッケージをインストールする。  
@@ -33,5 +43,13 @@ Mac環境下では下記のようなコマンドを利用する。
 ```bash
 python3 -m venv env
 source env/bin/activate
+pip install -r requirements.txt
+```
+
+Windows11, Python3.11.1, Git bash
+
+```bash
+py -m venv env
+source env/Scripts/activate
 pip install -r requirements.txt
 ```
