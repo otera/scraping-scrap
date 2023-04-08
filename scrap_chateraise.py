@@ -1,11 +1,20 @@
 import requests
-# import pandas as pd
 from bs4 import BeautifulSoup
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
 class Product:
+    """
+    商品情報
+
+    Attributes:
+        name (str): 商品名
+        price (str): 価格
+        comment (str): 紹介文
+        spec(dict): 栄養成分表
+    """
+
     def __init__(self, name, price, comment, spec):
         self.name = name
         self.price = price
@@ -24,22 +33,6 @@ class Product:
     def get_spec(self):
         return self.spec
 
-    def set_name(self, name):
-        self.name = name
-
-    def set_price(self, price):
-        self.price = price
-
-    def set_comment(self, comment):
-        self.comment = comment
-
-    def set_spec(self, spec):
-        self.spec = spec
-
-
-def no_product():
-    return "※該当商品はオンラインでの取り扱い終了か取得失敗"
-
 
 def get_bs(url):
     # 403回避
@@ -51,63 +44,62 @@ def get_bs(url):
     return BeautifulSoup(response.text, "html.parser")
 
 
-def get_details_icebar(target):
+def get_icebar_details(target):
+    """
+    アイスバーの詳細情報を取得する
+
+    Parameters:
+        target (str): 各アイスバーの詳細ページURL
+
+    Returns:
+        Tuple[str, Dict[str, str]]: 商品説明文、栄養成分表
+    """
+
     spec = {}
 
     soup = get_bs("https://www.chateraise.co.jp/" + target)
 
-    # ここいらないかも
-    # allergy = soup.find(
-    #     'dl', {'class': 'goods-detail-description block-goods-attr3'})
-    # # spec["アレルギー"] = allergy.find('dd').text
-    # if allergy is not None:
-    #     spec["アレルギー"] = allergy.find('dd').text
-    # else:
-    #     spec["アレルギー"] = "不明"
+    comment_selector = "div.block-goods-comment1"
+    comment = soup.select_one(
+        comment_selector).text.strip().replace("\r\n", "")
 
-    comment = soup.find(
-        "div", {"class": "block-goods-comment1"}).text.replace("\r\n", "").strip()
-
-    goods_item_infos = soup.find_all(
-        'div', {'class': 'block-goods-item-info'})
-    for goods_item_info in goods_item_infos:
-        dl_list = goods_item_info.find_all('dl')
-        for dl in dl_list:
-            dt = dl.find('dt').text
-            dd = dl.find('dd').text
-            spec[dt] = dd
+    item_selector = "div.block-goods-item-info dl"
+    item_details = soup.select(item_selector)
+    for item in item_details:
+        dt = item.select_one("dt").text
+        dd = item.select_one("dd").text
+        spec[dt] = dd.strip()
 
     return comment, spec
 
 
-# ページに表示されている商品情報をスクレイピングする
 def get_target_icebar(soup):
-    pickup_items = soup.find("ul", {"class": "block-pickup-list-p--items"})
+    """
+    検索結果一覧のsoupから、各商品情報を取得する
 
-    # デバッグ用
-    for i, item in enumerate(pickup_items.find_all("li")):
-        # 条件1
-        if i >= 1:
-            break
+    Parameters:
+        soup (bs4.BeautifulSoup): 商品情報が含まれるWebページの BeautifulSoup オブジェクト
+    """
 
-    # 本番用
-    # for item in pickup_items.find_all("li"):
-        name = item.find("a", {
-            "class": 'js-enhanced-ecommerce-goods-name'}).text
-        price = item.find("div", {
-                          "class": 'block-pickup-list-p--price price js-enhanced-ecommerce-goods-price'}).text
-        detail_url = item.find(
-            "a", {"class": 'js-enhanced-ecommerce-goods-name'}).get('href')
+    pickup_list = soup.select_one("ul.block-pickup-list-p--items")
 
-        # 詳細情報を取得
+    for pickup_item in pickup_list.select("li"):
+        name_elem = pickup_item.select_one(
+            "a.js-enhanced-ecommerce-goods-name")
+        name = name_elem.text
+
+        price = pickup_item.select_one(
+            "div.block-pickup-list-p--price.price.js-enhanced-ecommerce-goods-price").text
+
+        detail_url = name_elem.get("href")
+
         print("次の商品情報を取得します", name)
-        comment, spec = get_details_icebar(detail_url)
-        # comment = None
-        # spec = None
+        comment, spec = get_icebar_details(detail_url)
 
         icebars.append(Product(name, price, comment, spec))
 
 
+# スクレイピング処理
 icebars = []
 target_url = "https://www.chateraise.co.jp/ec/c/cice-bar/"
 while True:
@@ -116,16 +108,15 @@ while True:
     # 必要な情報をスクレイピング
     get_target_icebar(soup)
 
-    # 次のページがあるかどうかを確認する
-    next_link = soup.find('li', {"class": 'pager-next'})
-    if next_link is None:
+    # 次のページがなければ処理終了
+    next_link = soup.select_one("li.pager-next > a")
+    if not next_link:
         break
 
-    # 次のページの URL を生成する
-    next_link.find("a")
+    # 次のページのURLを生成する
+    target_url = "https://www.chateraise.co.jp/" + next_link["href"]
 
-    target_url = "https://www.chateraise.co.jp/" + next_link.find("a")['href']
-
+# スクレイピング結果をファイルに書き出す
 for icebar in icebars:
     with open("シャトレーゼ_アイスバー情報.md", mode="a", encoding='utf-8') as file:
         file.write('# {0}\n'.format(icebar.get_name()))
@@ -135,13 +126,9 @@ for icebar in icebars:
         file.write('## 栄養成分表示・アレルギー\n')
         spec = icebar.get_spec()
         _spec = ""
-        if spec is not None:
-            for k, v in spec.items():
-                _spec += "- {}\n".format(k)
-                _spec += "  - {}\n".format(v)
-            file.write(_spec)
-        else:
-            file.write("※取得できませんでした")
-        file.write('\n')
+        for k, v in spec.items():
+            _spec += "- {}\n".format(k)
+            _spec += "  - {}\n".format(v)
+        file.write('{}\n'.format(_spec))
 
         file.write('## コメント\n{0}\n\n'.format(icebar.get_comment()))
